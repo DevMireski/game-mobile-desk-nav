@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Wasteland Survivor</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #1a1a1a;
+        font-family: "Press Start 2P", cursive;
+      }
+      #mainMenu {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        color: white;
+        z-index: 1000;
+      }
+      #startButton {
+        padding: 15px 30px;
+        font-size: 20px;
+        background: #27ae60;
+        border: none;
+        color: white;
+        cursor: pointer;
+        border-radius: 5px;
+        margin-top: 20px;
+      }
+      #gameCanvas {
+        cursor: crosshair;
+        display: none;
+      }
+      #hud {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        color: white;
+        font-size: 14px;
+        z-index: 500;
+      }
+
+      #gameOverMenu {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        color: white;
+        z-index: 1000;
+        display: none;
+      }
+
+      #restartButton {
+        padding: 15px 30px;
+        font-size: 20px;
+        background: #e74c3c;
+        border: none;
+        color: white;
+        cursor: pointer;
+        border-radius: 5px;
+        margin-top: 20px;
+      }
+      /* Controles Mobile */
+      #controls {
+        position: fixed;
+        bottom: 20px;
+        width: 100%;
+        display: none;
+        justify-content: space-between;
+        padding: 0 20px;
+        box-sizing: border-box;
+        touch-action: manipulation;
+      }
+
+      .control-group {
+        display: flex;
+        gap: 15px;
+      }
+
+      .mobile-btn {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        border: 2px solid white;
+        color: white;
+        font-size: 24px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      @media (max-width: 800px) {
+        #controls {
+          display: flex;
+        }
+
+        #hud {
+          font-size: 12px;
+        }
+
+        .mobile-btn {
+          width: 50px;
+          height: 50px;
+          font-size: 20px;
+        }
+
+        div#shootBtn {
+          display: none;
+        }
+
+        div#upBtn {
+          position: relative;
+          top: -60px;
+          right: -140px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="mainMenu">
+      <h1>Wasteland Survivor</h1>
+      <button id="startButton">Play</button>
+    </div>
+
+    <div id="gameOverMenu">
+      <h1>Game Over!</h1>
+      <button id="restartButton">Jogar Novamente</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+    <div id="hud"></div>
+
+    <div id="controls">
+      <div class="control-group">
+        <div class="mobile-btn" id="upBtn">↑</div>
+        <div class="mobile-btn" id="leftBtn">←</div>
+        <div class="mobile-btn" id="downBtn">↓</div>
+        <div class="mobile-btn" id="rightBtn">→</div>
+      </div>
+      <div class="control-group">
+        <div class="mobile-btn" id="shootBtn">🔫</div>
+      </div>
+    </div>
+
+    <!-- Biblioteca de áudio -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
+
+    <script>
+      // -------------------------------
+      // Sistema de Áudio com Howler.js
+      // -------------------------------
+      const bgMusic = new Howl({
+        src: ["https://opengameart.org/sites/default/files/ambient-1.mp3"],
+        loop: true,
+        volume: 0.5,
+      });
+
+      const clickSound = new Howl({
+        src: ["https://opengameart.org/sites/default/files/button_click.mp3"],
+        volume: 0.8,
+      });
+
+      const gameOverSound = new Howl({
+        src: ["https://opengameart.org/sites/default/files/femaledeath.mp3"],
+        volume: 0.7,
+      });
+
+      // -----------------------------------
+      // Implementação do Perlin Noise
+      // -----------------------------------
+      const Perlin = (function () {
+        const permutation = [
+          151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225,
+          140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148,
+          247, 120, 234, 75, 0, 26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32,
+          57, 177, 33, 88, 237, 149, 56, 87, 174, 20, 125, 136, 171, 168, 68,
+          175, 74, 165, 71, 134, 139, 48, 27, 166, 77, 146, 158, 231, 83, 111,
+          229, 122, 60, 211, 133, 230, 220, 105, 92, 41, 55, 46, 245, 40, 244,
+          102, 143, 54, 65, 25, 63, 161, 1, 216, 80, 73, 209, 76, 132, 187, 208,
+          89, 18, 169, 200, 196, 135, 130, 116, 188, 159, 86, 164, 100, 109,
+          198, 173, 186, 3, 64, 52, 217, 226, 250, 124, 123, 5, 202, 38, 147,
+          118, 126, 255, 82, 85, 212, 207, 206, 59, 227, 47, 16, 58, 17, 182,
+          189, 28, 42, 223, 183, 170, 213, 119, 248, 152, 2, 44, 154, 163, 70,
+          221, 153, 101, 155, 167, 43, 172, 9, 129, 22, 39, 253, 19, 98, 108,
+          110, 79, 113, 224, 232, 178, 185, 112, 104, 218, 246, 97, 228, 251,
+          34, 242, 193, 238, 210, 144, 12, 191, 179, 162, 241, 81, 51, 145, 235,
+          249, 14, 239, 107, 49, 192, 214, 31, 181, 199, 106, 157, 184, 84, 204,
+          176, 115, 121, 50, 45, 127, 4, 150, 254, 138, 236, 205, 93, 222, 114,
+          67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156, 180,
+        ];
+
+        const p = new Array(512);
+        for (let i = 0; i < 256; i++) {
+          p[256 + i] = p[i] = permutation[i];
+        }
+
+        function fade(t) {
+          return t * t * t * (t * (t * 6 - 15) + 10);
+        }
+        function lerp(t, a, b) {
+          return a + t * (b - a);
+        }
+        function grad(hash, x, y, z) {
+          const h = hash & 15;
+          const u = h < 8 ? x : y,
+            v = h < 4 ? y : h === 12 || h === 14 ? x : z;
+          return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+        }
+
+        return {
+          noise: function (x, y, z) {
+            const X = Math.floor(x) & 255,
+              Y = Math.floor(y) & 255,
+              Z = Math.floor(z) & 255;
+            x -= Math.floor(x);
+            y -= Math.floor(y);
+            z -= Math.floor(z);
+            const u = fade(x),
+              v = fade(y),
+              w = fade(z);
+            const A = p[X] + Y,
+              AA = p[A] + Z,
+              AB = p[A + 1] + Z,
+              B = p[X + 1] + Y,
+              BA = p[B] + Z,
+              BB = p[B + 1] + Z;
+
+            return lerp(
+              w,
+              lerp(
+                v,
+                lerp(u, grad(p[AA], x, y, z), grad(p[BA], x - 1, y, z)),
+                lerp(u, grad(p[AB], x, y - 1, z), grad(p[BB], x - 1, y - 1, z))
+              ),
+              lerp(
+                v,
+                lerp(
+                  u,
+                  grad(p[AA + 1], x, y, z - 1),
+                  grad(p[BA + 1], x - 1, y, z - 1)
+                ),
+                lerp(
+                  u,
+                  grad(p[AB + 1], x, y - 1, z - 1),
+                  grad(p[BB + 1], x - 1, y - 1, z - 1)
+                )
+              )
+            );
+          },
+        };
+      })();
+
+      Math.perlin2 = function (x, y) {
+        return Perlin.noise(x, y, 0);
+      };
+
+      // -------------------------------
+      // Carregamento de Assets
+      // -------------------------------
+      const ASSETS = {
+        // URL do asset de terreno (espera-se uma sprite sheet com 4 tiles horizontais de 64x64)
+        terrain: "https://opengameart.org/sites/default/files/terrain_0.png",
+      };
+
+      async function loadImage(url) {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.src = url;
+          img.onload = () => {
+            console.log("Imagem carregada:", url);
+            resolve(img);
+          };
+          img.onerror = () => {
+            console.error("Erro ao carregar a imagem: " + url);
+            // Se não carregar, resolve com null para usar fallback.
+            resolve(null);
+          };
+        });
+      }
+
+      // -------------------------------
+      // Sistema do Jogo
+      // -------------------------------
+      class Game {
+        constructor(images) {
+          console.log("Construindo Game com imagens:", images);
+          this.canvas = document.getElementById("gameCanvas");
+          this.ctx = this.canvas.getContext("2d");
+          this.images = images;
+
+          // Exibe o canvas e esconde o menu principal
+          this.canvas.style.display = "block";
+          document.getElementById("mainMenu").style.display = "none";
+
+          // Define dimensões iniciais do canvas e cria o terreno antes de chamar resize()
+          this.canvas.width = window.innerWidth;
+          this.canvas.height = window.innerHeight;
+          this.terrain = new Terrain(this);
+
+          window.addEventListener("resize", () => this.resize());
+
+          // Inicializa os demais sistemas
+          this.player = new Player(this);
+          this.inventory = new Inventory();
+          this.enemies = [];
+          this.resources = [];
+          this.projectiles = [];
+          this.buildings = [];
+          this.particles = [];
+          this.crafting = new CraftingSystem(this);
+          this.shadows = new ShadowSystem(this);
+          this.saveSystem = new SaveSystem(this);
+
+          // Configurações iniciais
+          this.wave = 1;
+          this.isNight = false;
+          this.gameTime = 0;
+          this.spawnInterval = 3000;
+
+          // Controles
+          this.keys = {};
+          this.mouse = { x: 0, y: 0, down: false };
+          this.speed = window.innerWidth <= 800 ? 3 : 4;
+          
+          this.setupControls();
+
+          console.log("Jogo iniciado!");
+          // Inicia o loop do jogo
+          this.gameLoop();
+
+          this.gameOver = false;
+          this.setupRestartButton();
+        }
+
+        setupRestartButton() {
+          document
+            .getElementById("restartButton")
+            .addEventListener("click", () => {
+              location.reload(); // Recarrega a página para reiniciar
+            });
+        }
+
+        resize() {
+          this.canvas.width = window.innerWidth;
+          this.canvas.height = window.innerHeight;
+          console.log(
+            "Canvas redimensionado:",
+            this.canvas.width,
+            this.canvas.height
+          );
+          if (this.terrain) {
+            this.terrain.initTerrain();
+          }
+        }
+
+        setupControls() {
+          window.addEventListener("keydown", (e) => {
+            this.keys[e.key] = true;
+            console.log("Tecla pressionada:", e.key);
+            if (e.key === "m") {
+              if (bgMusic.playing()) {
+                bgMusic.pause();
+                console.log("Música pausada");
+              } else {
+                bgMusic.play();
+                console.log("Música iniciada");
+              }
+            }
+            if (e.key === "c") this.crafting.toggleMenu();
+            if (e.key === "s") this.saveSystem.saveGame();
+            if (e.key === "l") this.saveSystem.loadGame();
+          });
+          window.addEventListener("keyup", (e) => {
+            this.keys[e.key] = false;
+            console.log("Tecla liberada:", e.key);
+          });
+
+          this.canvas.addEventListener("mousemove", (e) => {
+            const rect = this.canvas.getBoundingClientRect();
+            this.mouse.x = e.clientX - rect.left;
+            this.mouse.y = e.clientY - rect.top;
+          });
+          this.canvas.addEventListener(
+            "mousedown",
+            () => (this.mouse.down = true)
+          );
+          this.canvas.addEventListener(
+            "mouseup",
+            () => (this.mouse.down = false)
+          );
+          this.setupTouchControls();
+        }
+
+        setupTouchControls() {
+          const handlePress = (key, state) => {
+            this.keys[key] = state;
+            if (state) this.mouse.down = true;
+          };
+
+          document.getElementById('upBtn').addEventListener('touchstart', () => handlePress('w', true));
+          document.getElementById('upBtn').addEventListener('touchend', () => handlePress('w', false));
+          
+          document.getElementById('leftBtn').addEventListener('touchstart', () => handlePress('a', true));
+          document.getElementById('leftBtn').addEventListener('touchend', () => handlePress('a', false));
+          
+          document.getElementById('downBtn').addEventListener('touchstart', () => handlePress('s', true));
+          document.getElementById('downBtn').addEventListener('touchend', () => handlePress('s', false));
+          
+          document.getElementById('rightBtn').addEventListener('touchstart', () => handlePress('d', true));
+          document.getElementById('rightBtn').addEventListener('touchend', () => handlePress('d', false));
+          
+          document.getElementById('shootBtn').addEventListener('touchstart', () => this.mouse.down = true);
+          document.getElementById('shootBtn').addEventListener('touchend', () => this.mouse.down = false);
+        }
+
+        gameLoop() {
+          if (this.gameOver) return;
+          this.update();
+          this.draw();
+          requestAnimationFrame(() => this.gameLoop());
+        }
+
+        update() {
+          if (this.gameOver) return;
+          this.player.update();
+          this.enemies.forEach((e) => e.update());
+          this.resources.forEach((r) => r.update && r.update());
+          this.projectiles = this.projectiles.filter((p) => p.lifetime > 0);
+          this.projectiles.forEach((p) => p.update());
+          this.particles = this.particles.filter((p) => p.alpha > 0);
+          this.particles.forEach((p) => p.update());
+          this.spawnSystem();
+          if (this.player.health <= 0) {
+            this.gameOver = true;
+            this.showGameOver();
+            bgMusic.stop();
+            return;
+          }
+        }
+
+        showGameOver() {
+          this.canvas.style.display = "none";
+          document.getElementById("hud").style.display = "none";
+          document.getElementById("gameOverMenu").style.display = "block";
+          gameOverSound.play();
+        }
+
+        draw() {
+          this.ctx.fillStyle = this.isNight ? "#0a0a1a" : "#87CEEB";
+          this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+          this.terrain.draw();
+          this.resources.forEach((r) => r.draw());
+          this.buildings.forEach((b) => b.draw());
+          this.enemies.forEach((e) => {
+            if (typeof e.draw === "function") {
+              // Verificação de segurança
+              this.shadows.drawShadow(e);
+              e.draw();
+            } else {
+              console.error("Objeto inválido no array de inimigos:", e);
+              // Remove o elemento inválido
+              this.enemies = this.enemies.filter((enemy) => enemy !== e);
+            }
+          });
+          this.player.draw();
+          this.projectiles.forEach((p) => p.draw());
+          this.particles.forEach((p) => p.draw(this.ctx));
+          this.crafting.drawMenu();
+          this.drawHUD();
+        }
+
+        drawHUD() {
+          const hud = document.getElementById("hud");
+          hud.innerHTML = `
+          Health: ${Math.round(this.player.health)}<br>
+          Stamina: ${Math.round(this.player.stamina)}<br>
+          Wood: ${this.inventory.slots.wood}<br>
+          Stone: ${this.inventory.slots.stone}<br>
+          Ammo: ${this.inventory.slots.ammo}
+        `;
+        }
+
+        spawnSystem() {
+          if (Math.random() < 0.01) {
+            const types = ["zumbi", "lobo", "urso"];
+            const type = types[Math.floor(Math.random() * types.length)];
+
+            if (!types.includes(type)) return;
+
+            const enemy = new Enemy(this, type);
+
+            // Configuração baseada no tipo
+            switch (type) {
+              case "zumbi":
+                enemy.color = "#27ae60";
+                enemy.speed = 1.5;
+                enemy.size = 28;
+                break;
+              case "lobo":
+                enemy.color = "#8e44ad";
+                enemy.speed = 2.5;
+                enemy.size = 32;
+                break;
+              case "urso":
+                enemy.color = "#2c3e50";
+                enemy.speed = 1.0;
+                enemy.size = 40;
+                break;
+            }
+
+            this.enemies.push(enemy);
+            console.log("Inimigo spawnado:", type);
+          }
+
+          if (this.resources.length < 15) {
+            const resourceTypes = ["madeira", "pedra"];
+            this.resources.push(
+              new Resource(
+                this,
+                resourceTypes[Math.floor(Math.random() * resourceTypes.length)]
+              )
+            );
+            console.log("Recurso spawnado!");
+          }
+        }
+      }
+
+      // -------------------------------
+      // Classes do Jogo
+      // -------------------------------
+      class Player {
+        constructor(game) {
+          this.game = game;
+          this.position = {
+            x: game.canvas.width / 2,
+            y: game.canvas.height / 2,
+          };
+          this.size = 32;
+          this.health = 100;
+          this.stamina = 100;
+          this.speed = 4;
+        }
+
+        update() {
+          this.health = Math.max(0, Math.min(this.health, 100));
+
+          const moveVector = { x: 0, y: 0 };
+
+          if (this.game.keys["w"] || this.game.keys["ArrowUp"])
+            moveVector.y -= 1;
+          if (this.game.keys["s"] || this.game.keys["ArrowDown"])
+            moveVector.y += 1;
+          if (this.game.keys["a"] || this.game.keys["ArrowLeft"])
+            moveVector.x -= 1;
+          if (this.game.keys["d"] || this.game.keys["ArrowRight"])
+            moveVector.x += 1;
+
+          const length = Math.hypot(moveVector.x, moveVector.y);
+          if (length > 0) {
+            moveVector.x /= length;
+            moveVector.y /= length;
+          }
+
+          this.position.x += moveVector.x * this.speed;
+          this.position.y += moveVector.y * this.speed;
+
+          this.position.x = Math.max(
+            0,
+            Math.min(this.game.canvas.width, this.position.x)
+          );
+          this.position.y = Math.max(
+            0,
+            Math.min(this.game.canvas.height, this.position.y)
+          );
+        }
+
+        draw() {
+          this.game.ctx.fillStyle = "#2ecc71";
+          this.game.ctx.fillRect(
+            this.position.x - this.size / 2,
+            this.position.y - this.size / 2,
+            this.size,
+            this.size
+          );
+        }
+      }
+
+      class Inventory {
+        constructor() {
+          this.slots = {
+            wood: 0,
+            stone: 0,
+            ammo: 20,
+          };
+        }
+      }
+
+      class Enemy {
+        constructor(game, type) {
+          this.game = game;
+          this.type = type;
+          this.position = {
+            x: Math.random() * game.canvas.width,
+            y: Math.random() * game.canvas.height,
+          };
+          this.size = 32;
+          this.speed = 2;
+          this.damage = 10;
+          this.health = 100;
+          this.attackCooldown = 0;
+          this.velocity = { x: 0, y: 0 }; // Adicione esta linha
+          this.pathUpdateCooldown = 0;
+          this.currentTarget = null;
+        }
+
+        update() {
+          this.updateMovement();
+          this.updateAttack();
+          this.updatePathfinding();
+        }
+
+        updateMovement() {
+          const dx = this.game.player.position.x - this.position.x;
+          const dy = this.game.player.position.y - this.position.y;
+          const distance = Math.hypot(dx, dy);
+
+          if (distance > 50) {
+            // Começa a se mover apenas quando está longe
+            const acceleration = 0.1;
+            this.velocity.x += (dx / distance) * acceleration;
+            this.velocity.y += (dy / distance) * acceleration;
+
+            // Limita velocidade máxima com suavização
+            const currentSpeed = Math.hypot(this.velocity.x, this.velocity.y);
+            const maxSpeed = this.speed;
+            if (currentSpeed > maxSpeed) {
+              const ratio = maxSpeed / currentSpeed;
+              this.velocity.x *= ratio;
+              this.velocity.y *= ratio;
+            }
+          } else {
+            // Desacelera quando está perto
+            this.velocity.x *= 0.9;
+            this.velocity.y *= 0.9;
+          }
+
+          this.position.x += this.velocity.x;
+          this.position.y += this.velocity.y;
+        }
+
+        draw() {
+          // Garantir que o contexto está disponível
+          const ctx = this.game.ctx;
+
+          // Corpo do inimigo
+          ctx.fillStyle = this.color || "#e74c3c"; // Fallback caso não tenha cor definida
+          ctx.beginPath();
+          ctx.arc(
+            this.position.x,
+            this.position.y,
+            this.size / 2,
+            0,
+            Math.PI * 2
+          );
+          ctx.fill();
+
+          // Olhos para dar mais personalidade
+          ctx.fillStyle = "#ffffff";
+          ctx.beginPath();
+          ctx.arc(
+            this.position.x - this.size / 4,
+            this.position.y - this.size / 6,
+            this.size / 8,
+            0,
+            Math.PI * 2
+          );
+          ctx.arc(
+            this.position.x + this.size / 4,
+            this.position.y - this.size / 6,
+            this.size / 8,
+            0,
+            Math.PI * 2
+          );
+          ctx.fill();
+        }
+
+        updatePathfinding() {
+          // Atualiza o caminho periodicamente
+          if (this.pathUpdateCooldown <= 0) {
+            this.currentTarget = this.calculatePath();
+            this.pathUpdateCooldown = 60; // Atualiza a cada 1 segundo
+          }
+          this.pathUpdateCooldown--;
+        }
+
+        calculatePath() {
+          // Pathfinding simples que evita obstáculos
+          const playerPos = this.game.player.position;
+          return {
+            x: playerPos.x + (Math.random() * 50 - 25), // Adiciona pequena variação
+            y: playerPos.y + (Math.random() * 50 - 25),
+          };
+        }
+
+        updateAttack() {
+          const distance = Math.hypot(
+            this.position.x - this.game.player.position.x,
+            this.position.y - this.game.player.position.y
+          );
+
+          if (distance < this.size + this.game.player.size) {
+            if (this.attackCooldown <= 0) {
+              this.game.player.health -= this.damage;
+              this.attackCooldown = 60;
+              this.createAttackEffect();
+            }
+          }
+          this.attackCooldown = Math.max(0, this.attackCooldown - 1);
+        }
+
+        createAttackEffect() {
+          // Efeito visual de ataque
+          for (let i = 0; i < 5; i++) {
+            this.game.particles.push(
+              new Particle(this.position.x, this.position.y, "#ff0000", 3, {
+                x: (Math.random() - 0.5) * 5,
+                y: (Math.random() - 0.5) * 5,
+              })
+            );
+          }
+        }
+      }
+
+      class Particle {
+        constructor(x, y, color, size = 3, velocity = { x: 0, y: 0 }) {
+          this.position = { x, y };
+          this.velocity = velocity;
+          this.color = color;
+          this.size = size;
+          this.alpha = 1;
+        }
+
+        update() {
+          this.position.x += this.velocity.x;
+          this.position.y += this.velocity.y;
+          this.alpha -= 0.02;
+          this.size *= 0.98;
+        }
+
+        draw(ctx) {
+          ctx.save();
+          ctx.globalAlpha = this.alpha;
+          ctx.fillStyle = this.color;
+          ctx.beginPath();
+          ctx.arc(this.position.x, this.position.y, this.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      class Resource {
+        constructor(game, type) {
+          this.game = game;
+          this.type = type;
+          this.position = {
+            x: Math.random() * game.canvas.width,
+            y: Math.random() * game.canvas.height,
+          };
+          this.size = 15;
+        }
+
+        draw() {
+          const color = this.type === "madeira" ? "#8B4513" : "#7f8c8d";
+          this.game.ctx.fillStyle = color;
+          this.game.ctx.beginPath();
+          this.game.ctx.arc(
+            this.position.x,
+            this.position.y,
+            this.size,
+            0,
+            Math.PI * 2
+          );
+          this.game.ctx.fill();
+        }
+      }
+
+      class Terrain {
+        constructor(game) {
+          this.game = game;
+          this.tileSize = 64;
+          this.grid = [];
+          this.initTerrain();
+        }
+
+        initTerrain() {
+          const cols = Math.ceil(this.game.canvas.width / this.tileSize);
+          const rows = Math.ceil(this.game.canvas.height / this.tileSize);
+          this.grid = [];
+
+          for (let x = 0; x < cols; x++) {
+            this.grid[x] = [];
+            for (let y = 0; y < rows; y++) {
+              this.grid[x][y] = this.getTileType(x, y);
+            }
+          }
+          console.log("Terreno inicializado com sucesso!");
+        }
+
+        // Adicione este método faltante
+        getTileType(x, y) {
+          const noise = Math.perlin2(x / 10, y / 10);
+          if (noise < 0.3) return "water";
+          if (noise < 0.4) return "sand";
+          if (noise > 0.7) return "rock";
+          return "grass";
+        }
+
+        draw() {
+          const ctx = this.game.ctx;
+          const patternMap = {
+            water: { color: "#45aaf2", pattern: this.createWavePattern },
+            sand: { color: "#fed330", pattern: this.createDotPattern },
+            grass: { color: "#26de81", pattern: this.createGrassPattern },
+            rock: { color: "#a5b1c2", pattern: this.createRockPattern },
+          };
+
+          this.grid.forEach((col, x) => {
+            col.forEach((tile, y) => {
+              const posX = x * this.tileSize;
+              const posY = y * this.tileSize;
+
+              // Base color
+              ctx.fillStyle = patternMap[tile].color;
+              ctx.fillRect(posX, posY, this.tileSize, this.tileSize);
+
+              // Padrão estilizado
+              patternMap[tile].pattern.call(this, ctx, posX, posY);
+            });
+          });
+        }
+
+        createWavePattern(ctx, x, y) {
+          ctx.strokeStyle = "#4b7bec";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(x, y + this.tileSize / 2);
+          ctx.bezierCurveTo(
+            x + this.tileSize / 3,
+            y + this.tileSize / 4,
+            x + (this.tileSize * 2) / 3,
+            y + (this.tileSize * 3) / 4,
+            x + this.tileSize,
+            y + this.tileSize / 2
+          );
+          ctx.stroke();
+        }
+
+        createDotPattern(ctx, x, y) {
+          ctx.fillStyle = "#f7b731";
+          for (let i = 0; i < 8; i++) {
+            ctx.beginPath();
+            ctx.arc(
+              x + Math.random() * this.tileSize,
+              y + Math.random() * this.tileSize,
+              1 + Math.random() * 2,
+              0,
+              Math.PI * 2
+            );
+            ctx.fill();
+          }
+        }
+
+        createGrassPattern(ctx, x, y) {
+          ctx.strokeStyle = "#20bf6b";
+          ctx.lineWidth = 2;
+          for (let i = 0; i < 5; i++) {
+            ctx.beginPath();
+            ctx.moveTo(x + Math.random() * this.tileSize, y + this.tileSize);
+            ctx.lineTo(
+              x + Math.random() * this.tileSize,
+              y + (Math.random() * this.tileSize) / 2
+            );
+            ctx.stroke();
+          }
+        }
+
+        createRockPattern(ctx, x, y) {
+          ctx.fillStyle = "#d1d8e0";
+          ctx.beginPath();
+          ctx.arc(
+            x + this.tileSize / 2,
+            y + this.tileSize / 2,
+            this.tileSize / 4,
+            0,
+            Math.PI * 2
+          );
+          ctx.fill();
+        }
+      }
+
+      class CraftingSystem {
+        constructor(game) {
+          this.game = game;
+          this.isMenuOpen = false;
+        }
+
+        toggleMenu() {
+          this.isMenuOpen = !this.isMenuOpen;
+          console.log(
+            "Menu de Crafting:",
+            this.isMenuOpen ? "Aberto" : "Fechado"
+          );
+        }
+
+        drawMenu() {
+          if (!this.isMenuOpen) return;
+          this.game.ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+          this.game.ctx.fillRect(50, 50, 300, 200);
+          this.game.ctx.fillStyle = "#fff";
+          this.game.ctx.font = "14px sans-serif";
+          this.game.ctx.fillText("Menu de Crafting", 70, 80);
+        }
+      }
+
+      class ShadowSystem {
+        constructor(game) {
+          // Adicione o parâmetro game
+          this.game = game;
+        }
+
+        drawShadow(entity) {
+          const ctx = this.game.ctx;
+          ctx.save();
+          ctx.fillStyle = "rgba(0,0,0,0.3)";
+          ctx.beginPath();
+          ctx.ellipse(
+            entity.position.x,
+            entity.position.y + entity.size / 2,
+            entity.size / 1.5,
+            entity.size / 4,
+            0,
+            0,
+            Math.PI * 2
+          );
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      class SaveSystem {
+        constructor(game) {
+          this.game = game;
+        }
+        saveGame() {
+          localStorage.setItem("wastelandSave", JSON.stringify({}));
+          console.log("Jogo salvo!");
+        }
+        loadGame() {
+          const data = localStorage.getItem("wastelandSave");
+          console.log("Jogo carregado!", data);
+        }
+      }
+
+      // -------------------------------
+      // Inicialização do Jogo
+      // -------------------------------
+      async function initGame() {
+        try {
+          console.log("Iniciando carregamento dos assets...");
+          const terrainImage = await loadImage(ASSETS.terrain);
+          console.log("Asset do terreno:", terrainImage);
+
+          document
+            .getElementById("startButton")
+            .addEventListener("click", () => {
+              console.log("Botão Play clicado");
+              clickSound.play();
+              bgMusic.play();
+              new Game({ terrain: terrainImage });
+            });
+        } catch (error) {
+          console.error("Erro ao carregar assets:", error);
+        }
+      }
+
+      window.addEventListener("load", () => {
+        console.log("Página carregada. Iniciando initGame()...");
+        initGame();
+      });
+    </script>
+  </body>
+</html>
